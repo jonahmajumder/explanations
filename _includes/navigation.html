@@ -1,0 +1,82 @@
+<nav>
+    <ul class="sidenav">     
+<!--         {% for item in site.data.navigation %}
+            <li>
+                {% if page.url == item.link %}
+                <div class="current pagename">
+                {{ item.name }}
+                </div>
+                {% if item.sections.size > 0 %}
+                    <ol class="sectionlist">
+                    {% for section in item.sections %}
+                        <li>
+                            <a href="{{ section.link }}">
+                            {{ section.name }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                    </ol>
+                {% endif %}
+                {% else %}
+                <a href="{{ item.link }}" class="other pagename">
+                {{ item.name }}
+                </a>
+                {% endif %}
+            </li>
+        {% endfor %} -->
+        {% assign item = site.data.navigation | first %}
+        <li>
+            {% if page.url == item.link %}
+            <div class="current pagename">
+            {{ item.name }}
+            </div>
+            {% else %}
+            <a href="{{ item.link }}" class="other pagename">
+            {{ item.name }}
+            </a>
+            {% endif %}
+        </li>
+
+        <hr class="divider">
+
+        {% for post in site.posts %}
+            <li>
+                {% if page.url == post.url %}
+                <div class="current pagename">
+                {{ post.title }}
+                </div>
+                {% if post.sections.size > 0 %}
+                    <ol class="sectionlist">
+                    {% for section in post.sections %}
+                        <li>
+                            <a href="{{ section.link }}">
+                            {{ section.name }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                    </ol>
+                {% endif %}
+                {% else %}
+                <a href="{{ post.url }}" class="other pagename">
+                {{ post.title }}
+                </a>
+                {% endif %}
+            </li>
+        {% endfor %}
+
+        <hr class="divider">
+
+        {% assign item = site.data.navigation | last %}
+        <li>
+            {% if page.url == item.link %}
+            <div class="current pagename">
+            {{ item.name }}
+            </div>
+            {% else %}
+            <a href="{{ item.link }}" class="other pagename">
+            {{ item.name }}
+            </a>
+            {% endif %}
+        </li>
+    </ul>
+</nav>

@@ -1,6 +1,9 @@
 ---
-layout: default
-title: About
+layout: posts
+<!-- title: First Post! -->
+sections:
+    - name: Section 1
+    - name: Section 2
 ---
 
 {{site.description}}

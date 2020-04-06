@@ -29,7 +29,7 @@ github_username: jonahmajumder
 
 # Build settings
 markdown: kramdown
-theme: jekyll-theme-dinky
+# theme: jekyll-theme-dinky
 plugins:
   - jekyll-feed
 
