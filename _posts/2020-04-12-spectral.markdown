@@ -1,0 +1,322 @@
+---
+layout: posts
+<!-- title: First Post! -->
+sections: 
+  - 
+    link: "#chapter1"
+    name: "Introduction"
+  - 
+    link: "#chapter2"
+    name: "Nonparametric Methods"
+  -
+    link: "#chapter4"
+    name: "Parametric Methods for Line Spectra"
+---
+
+<p>This post contains my notes from (select chapters of) <em>Spectral Analysis of Signals</em>, by Petre Stoica and Randolph Moses. I've also added a few comments of my own that I wanted to have written down somewhere.</p>
+<h4>Contents</h4>
+<ul>
+    <li><a href="#chapter1">Chapter 1: Introduction</a>
+        <ul style="margin: 0;">
+            <li><a href="#ch1sec1">The Spectral Estimation Problem</a></li>
+            <li><a href="#ch1sec2">Breakdown of Estimation Methods</a></li>
+        </ul>
+    </li>
+    <li><a href="#chapter2">Chapter 2: Nonparametric Methods</a>
+        <ul style="margin: 0;">
+            <li><a href="#ch2sec1">Periodogram and Discrete Fourier Transform Basics</a></li>
+            <li><a href="#ch2sec2">Windowing and Zero-Padding</a></li>
+        </ul>
+    </li>
+    <li><a href="#chapter4">Chapter 4: Parametric Methods for Line Spectra</a>
+    <ul style="margin: 0;">
+        <li><a href="#ch4sec1">The Line Spectrum Model</a></li>
+        <li><a href="#ch4sec2">Nonlinear Least Squares Method</a></li>
+        <li><a href="#ch4sec3">Covariance Matrix Methods</a>
+    <ul style="margin: 0;">
+        <li><a href="#ch4sec3sub1">MUltiple SIgnal Classification Algorithm (MUSIC)</a></li>
+        <li><a href="#ch4sec3sub2">Other Covariance Matrix Methods</a></li>
+    </ul>
+    </li>
+    </ul>
+    </li>
+</ul>
+
+<h3 id="chapter1">Chapter 1: Introduction</h3>
+<h4 id="ch1sec1">The Spectral Estimation Problem</h4>
+
+<p>In the most general terms, the so-called "spectral estimation problem" can be stated as:</p>
+<p>Given a sequence of samples \(y(t)\) (for \(t \in \mathbb{Z}\)) from a <em>second-order stationary</em> process, estimate the power spectral density (PSD):
+
+$$\phi(\omega) \equiv \lim_{N\to\infty} \mathbb{E} \left[ \frac{1}{N} \left\| \sum\limits_{t=1}^N y(t) \, e^{-i \omega t} \right\| ^ 2\right]$$
+
+over the range \(\omega \in \left[ - \pi, \pi \right]\).</p>
+
+<p>Note that \(\omega\) is defined in units of "radians per sampling interval," meaning that a value of \(\pi\) corresponds to 1/2 a cycle per sampling interval, or 1/2 of the sampling frequency, \(F_s\). I highly recommend dealing with signal frequencies in these units (or "cycles per sampling interval," denoted here as \(f\)), as it simplifies analysis a lot. Afterwards, you can always convert back to a physical frequency (denoted \(F\)) in Hz by multiplying by \(F_s\).</p>
+
+
+<p>So the range \(\omega \in \left[-\pi,\pi\right] \frac{\textrm{radians}}{\textrm{sample}}\) corresponds to \(f \in \left[-1/2, 1/2 \right] \frac{\textrm{cycles}}{\textrm{sample}}\), or \(F \in \left[ - F_s/2, F_s/2 \right] \frac{\textrm{cycles}}{\textrm{second}}\). As expected, the highest frequency visible on the spectrum is the Nyquist frequency, \(F_s / 2\).</p>
+<p>Key properties of the power spectral density, \(\phi(\omega)\),  are:</p>
+
+<ul>
+    <li>\(\phi(\omega)\) is real and nonnegative for all \(\omega\) (because it is really a set of complex magnitudes)</li>
+    <li>If \(y(t)\) is real, then \(\phi(\omega)\) is symmetric about 0, so \(\phi(\omega) = \phi(-\omega)\). This follows from the fact that all real sines and cosines contain exponential terms at both \(+\omega\) and \(-\omega\).  </li>
+</ul>
+
+<p>The book notes that the length of the data \(N\) is typically limited by the length over which the signal can be considered "second-order stationary." Second-order stationarity implies 2 things about a data sequence:</p>
+<ul>
+    <li>Its mean does not change</li>
+    <li>Correlations between samples depend only on the spacing between the samples</li>
+</ul>
+<p>I have interpreted this as meaning that in a second-order stationary process, frequency components do not change. In light of that interpretation, the assumption of second-order stationarity makes a lot of sense: no single estimation is going to be meaningful if the underlying true frequencies change throughout the data.</p>
+<p>Clearly this assumption has implications for our application, particularly in the case of fitting a frequency-modulated sinusoid. If we are trying to "sample" the modulation waveform, analyzed chunks must be short enough to assume a single frequency for each chunk.</p>
+
+<h4 id="ch1sec2">Breakdown of Estimation Methods</h4>
+<p>There are 2 main approaches to the PSD estimation problem:</p>
+<ul>
+    <li>Nonparametric approaches: provide a maximally general estimation of \(\phi(\omega)\) for all \(\omega\), making no assumptions about its functional form
+
+<ul style="margin: 0;">
+    <li>A periodogram is an example of a nonparametric method</li>
+</ul>
+</li>
+    <li>Parametric approaches: require that we have a model for \(\phi(\omega)\), and we fit parameters of that model
+
+<ul style="margin: 0;">
+    <li>Not surprisingly, this is generally more accurate because we have more information to begin with</li>
+    <li>Given that our application is essentially just determining a single parameter (frequency) of a known function (a sine wave), this seems like the way to go</li>
+</ul>
+</li>
+</ul>
+
+<h3 id="chapter2">Chapter 2: Nonparametric Methods</h3>
+
+<h4 id="ch2sec1">Periodogram and Discrete Fourier Transform Basics</h4>
+<p>A periodogram is an example of a nonparametric method of estimating power spectral density. It is defined as:
+$$ \hat{\phi}_p(\omega) \equiv \frac{1}{N} \left\| \sum\limits_{t=1}^N y(t) \, e^{-i \omega t} \right\| ^ 2$$
+</p>
+<p>It can be thought of as an <em>estimator</em> that is a function of the data. As with any estimator, the performance of \(\hat{\phi}_p(\omega)\) can be evaluated in terms of bias (indicating accuracy) and variance (indicating precision). In the presence of white noise, the periodogram is an unbiased estimator only when \(N \to \infty\). The textbook makes the point that the variance of \(\hat{\phi}_p(\omega)\) is also relatively poor. However, the periodogram does have the advantage of being fast to perform, because it is closely related to the discrete Fourier transform (and can be calculated with an FFT algorithm).</p>
+<p>The discrete Fourier transform (DFT) of an \(N\)-point, complex sequence \(y\), is another \(N\)-point, complex sequence:</p>
+<p>$$Y(k) \equiv \sum\limits_{t=1}^N y(t)\, e^{-i \frac{2 \pi}{N} k t} \textrm{  for  } k=0, \, \ldots , N-1$$</p>
+<p>This can be written in terms of \(\omega\) using the substitution \(\omega = \frac{2 \pi}{N} k\):</p>
+<p>$$Y(\omega) = \sum\limits_{t=1}^N y(t)\, e^{-i \omega t}$$</p>
+<p>Which makes clear that we can compute the periodogram from the DFT: \(\hat{\phi}_p(\omega) = \frac{1}{N} \left\| Y(\omega)\right\| ^ 2\).</p>
+<p>The conversion between \(\omega\) and \(k\) reveals the standard point spacing (in frequency space) of the DFT (or periodogram), \(d\omega =2 \pi/N\) radians per sample. This implies that \(df = 1/N\) cycles per sample, and that the spacing in Hz, \(dF\), is \(F_s/N\).</p>
+
+<p>The range of the DFT appears to span \(\omega \in \left[0, 2 \pi\right]\), which is inconsistent with the definition above. However, \(e^{- i \omega t}\), and therefore \(Y(\omega)\), are periodic in \(\omega\), with period \(2 \pi\). This means that \(\hat{\phi}_p \left( \left[ \pi, 2 \pi \right] \right) = \hat{\phi}_p \left( \left[-\pi, 0 \right] \right)\), and with a little rearrangement, the DFT can just as easily be considered to span \(\omega \in \left[- \pi, \pi\right]\). An intuitive interpretation of this periodicity is that frequencies between \(\pi\) and \(2 \pi\) are "aliased" down into the range \(\omega \in \left[- \pi, 0 \right]\). For example, if a signal completes exactly \(3 / 4\) of a cycle between samples (i.e. \(\omega = 3 \pi / 2\)), it will appear to move <em>backwards</em> by \(1 / 4\) of a cycle each time it is sampled (\(\omega = - \pi / 2\)).</p>
+
+<p>Matlab's <code>fftshift</code> function is designed to reorder values of a DFT array so that they are remapped from  \(\left[0, 2 \pi\right]\) to \(\left[- \pi, \pi\right]\). The raw output of a DFT (such as that of Matlab's <code>fft</code> function) will always correspond to frequencies \(\omega = 0, \ldots, 2 \pi \frac{N-1}{N}\). After rearrangement (using <code>fftshift</code>), the new values correspond to frequencies
+
+$$\omega = -2 \pi \frac{N}{2}, \ldots, 0, \ldots, 2 \pi \left( \frac{N}{2} - 1 \right), \textrm{  if  } N \textrm{  is even, and}$$
+$$\omega = -2 \pi \frac{N-1}{2}, \ldots, 0, \ldots 2 \pi \frac{N-1}{2}, \textrm{  if  } N \textrm{  is odd.}$$</p>
+
+<p>In practice we deal with real-numbered signals, and so unless data are explicitly made complex, their spectra are (anti)symmetric about \(\omega = 0\). Negative frequency components are redundant (complex conjugates of their positive counterparts), and so it makes sense to deal with only the positive half of the spectrum. If one is willing to also discard phase information, the DFT can be "folded over" into a real, "one-sided" spectrum representing frequencies \(\omega \in \left[ 0, \pi \right]\). In practice, this is just a matter of adding up the complex amplitudes associated with each positive and negative frequency component. This is much simpler after using the <code>fftshift</code> function to ensure that <code>fft</code> components are ordered from \(-\pi\) to \(\pi\). The one tricky aspect of this procedure is to make sure that contributions without a negative counterpart \((\omega = 0\) and, for even \(N\), \(\omega = \pm 2 \pi \frac{N}{2})\) are doubled to evenly weight all frequencies.</p>
+
+<h4 id="ch2sec2">Windowing and Zero-Padding</h4>
+
+<p>The ability of the DFT or periodogram to distinguish nearby frequency components is fundamentally limited by the amount of data available. As referenced above, the DFT is typically sampled for integer \(k\), or with a frequency spacing of \(Fs/N\). However, there is no fundamental reason that the DFT (or periodogram) can't be sampled at intermediate frequencies.</p>
+
+<p>The frequency resolution of the periodogram estimator can be improved by simply evaluating the formula for the DFT at non-integer values of \(k\). Alternatively, one can add zeros to the end of the time domain sequence, and then take the DFT of the resulting data. It turns out that these methods are exactly mathematically equivalent, both yielding spectra that are "oversampled" in the frequency domain. This can be useful in identifying frequencies that lie between the normally sampled points. However, it is important to understand the limitations of this technique, and to realize what zero-padding actually does.</p>
+<p>The important caveat, as noted by the textbook, is:</p>
+
+<blockquote>
+<p>Since the <em>continuous-frequency</em> spectral estimate, \(\hat{\phi}_p(\omega)\), is the same for both the original data sequence and the sequence padded with zeroes, zero padding cannot of course improve the spectral resolution of the periodogram methods.</p>
+</blockquote>
+
+<p>The periodogram can be evaluated for all \(\omega\), but in doing so, we are treating our time-domain signal as one that extends from \(-\infty\) to \(+\infty\). The implicit assumption is that for times outside of \(\left[ 0, N*dt \right]\), the data are all 0. This assumption is represented mathematically by the multiplication of our data (extended infinitely) with a rectangular window centered at \(N/2*dt\), with duration \(N*dt\). In the frequency domain, this translates to a convolution of the Fourier transforms of the window and original signal. The Fourier transform of this rectangular window is a \(\operatorname{sinc}\), with a complex prefactor because the window is not symmetric about \(0\).</p>
+<p>The rectangular window can be represented as a "boxcar" function with width \(W\), centered at \(C\):</p>
+
+<p>$$\operatorname{boxcar} (t) =
+\begin{cases}
+  \displaystyle 0 \textrm{,  if  } t < C - \frac{W}{2} \\
+  \displaystyle 1 \textrm{,  if  } C - \frac{W}{2} \leq t < C + \frac{W}{2}\\
+  \displaystyle 0 \textrm{,  if  } t \geq C + \frac{W}{2}
+\end{cases}$$</p>
+
+<p>With Fourier transform:</p>
+
+<p>$$ \mathscr{F} \left[ \, \operatorname{boxcar} (t) \, \right] (\omega) = \frac{W}{\sqrt{2 \pi}} \; e^{\, i C \omega} \; \operatorname{sinc} \left[ \frac{W}{2} \omega \right]$$</p>
+
+<p>For the case of (sums of) pure sinusoids ("line spectra"), the Fourier transform of the signal (extended infinitely) is simply a set of delta functions at the frequencies of the component sinusoids. The convolution, then, between the Fourier transforms of the signal and window, is a sum of complex \(\operatorname{sinc}\) functions at the component frequencies. These \(\operatorname{sinc}\) functions have width inversely proportional to the length of our finite data sequence, an effect which is sometimes called "smearing out" of narrow signals. This smearing of peaks prevents the periodogram from distinguishing frequency components separated by less than \(F_s/N\). Each of these peaks also has "sidelobes," recurring smaller peaks far away from the center frequency. This phenomenon is called "<a href="https://en.wikipedia.org/wiki/Spectral_leakage">spectral leakage</a>." The DFT values from standard sampling, at \(f = 2 \pi \frac{k}{N}\) for integer \(k\), hide these undesirable characteristics. Below is a graphic illustrating this effect.</p>
+
+<img src="{{site.baseurl}}/assets/images/sampled-ft.png">
+
+<p>On the top is a simulated complex exponential sampled exactly 8 times per cycle \((\omega_1 = 2 \pi / 8 = \pi / 4)\), for \(N = 16\) samples. In yellow is the implicit window assumed when calculating the continuous Fourier transform of the finite data. On the bottom, both the continuous and discrete Fourier transforms are plotted against \(\omega\). This simulation illustrates how, with standard sampling, the DFT values coincide exactly with the continuous-frequency curves.</p>
+<p>Ultimately, the DFT (or periodogram) can be sampled as densely as desired, but it will always sample this same underlying frequency distribution. The peaks of this underlying function will always have widths determined by the original, finite data length. Zero padding can provide higher <em>granularity</em> for the DFT, but it cannot make these peaks narrower or improve the ability of the DFT to resolve nearby frequencies.</p>
+<p>A lot of additional information is covered in the rest of this chapter, but I don't think it makes sense for me to read it all carefully now. For reference, the topics include:</p>
+<ul>
+    <li>the "correlogram" PSD estimator</li>
+    <li>formulas for the bias and variance of PSD estimators</li>
+    <li>window design and the effects of windowing on PSD estimates</li>
+</ul>
+
+<h3 id="chapter4">Chapter 4: Parametric Methods for Line Spectra</h3>
+<h4 id="ch4sec1">The Line Spectrum Model</h4>
+
+<p>This chapter deals with parametric methods for estimating PSD of line spectra. Line spectra are composed of pure sinusoids added to uncorrelated, white noise:</p>
+<p>$$y(t) = x(t) + e(t)$$</p>
+<p>The noise \(e(t)\) is assumed to have standard deviation \(\sigma\). It is assumed that the signal, \(x(t)\), is noiseless and can be written as the finite sum of \(n\) complex sinusoids, denoted \(x_p(t)\):</p>
+<p>$$x(t) = \sum\limits_{p=1}^n x_p(t) = \sum\limits_{p=1}^n \alpha_p \, e^{i (\omega_p t + \varphi_p)}$$</p>
+<p>The assumption is made that all complex magnitudes \(\alpha_p > 0\) to remove an ambiguity in \(\varphi_p\). If \(\varphi_p\) values are uncorrelated, the PSD of \(y(t)\) can be written as the sum of delta functions:</p>
+<p>$$ \phi(\omega) = 2 \pi \sum\limits_{p=1}^n \alpha_p^2 \, \delta(\omega - \omega_p) + \sigma^2$$</p>
+<p>This form makes it clear that the PSD function is just composed of vertical "lines" at the \(\omega_p\) values, superimposed on a noise "floor" of \(\sigma^2\). Note that we can define the signal-to-noise ratio on each frequency component,
+$$\textrm{SNR}_p \equiv \frac{\alpha_p^2}{\sigma^2}.$$
+
+Below is an illustration of a line spectrum from the book.</p>
+
+<img src="{{site.baseurl}}/assets/images/line-spectrum.png"/>
+
+<p>With this model, the PSD estimation problem becomes one of <em>frequency estimation</em>: estimating the <em>locations</em> of \(n\) spectral components. Once the frequency estimates are determined, estimation of amplitude and phase parameters is a simple linear regression problem. For a single sinusoid, of course, \(n=1\).</p>
+
+<p>The remainder of chapter 4 describes various methods of frequency estimation. These methods are said to be <em>high-</em> or<em> super-resolution</em> methods, referring to the fact that they can resolve spectral lines separated by less than \(F_s / N\), the typical limit of a DFT/periodogram. The book points out that all of the listed methods provide similarly high accuracy and have similar computational burdens. Hence, the choice of method is said to be largely "a matter of taste."</p>
+
+<h4 id="ch4sec2">Nonlinear Least Squares Method</h4>
+<p>The nonlinear least squares method consists of minimizing the objective function</p>
+<p>$$ f(\alpha, \omega, \varphi) = \sum\limits_{t=1}^{N} \left\| y(t) - \sum\limits_{p=1}^{n} \alpha_p \, e^{i (\omega_p t + \varphi_p)}\right\|^2$$</p>
+<p>with respect to the (vector) coefficients \(\alpha\), \(\omega\), and \(\varphi\). By defining \(\beta_p = \alpha_p \, e^{i \varphi_p}\), we can rewrite the objective function
+
+$$ f(\omega, \beta) = \sum\limits_{t=1}^{N} \left\| y(t) - \sum\limits_{p=1}^{n} \beta_p \, e^{i \omega_p t}\right\|^2,$$
+and the optimal estimate \(\hat{\omega}\) can be determined independently of \(\hat{\beta}\) (frequency estimation alone).</p>
+<p>The estimator \(\hat{\omega}\) has the following properties:</p>
+<ul>
+    <li>It is unbiased, i.e. \(\lim_{N \to \infty} \hat{\omega} = \omega\)</li>
+    <li>Errors in estimates of different frequencies are uncorrelated</li>
+    <li>Its covariance matrix is:
+    $$ \operatorname{cov} ({\hat{\omega}}) =
+    \frac{6 \sigma^2}{N^3}
+    \begin{bmatrix} 
+    1 / \alpha_1^2 & \dots & 0 \\
+    \vdots & \ddots & \vdots \\
+    0 & \dots & 1 / \alpha_n^2 \\
+    \end{bmatrix}
+    = 
+    \frac{6}{N^3}
+    \begin{bmatrix} 
+    1 / \textrm{SNR}_1 & \dots & 0 \\
+    \vdots & \ddots & \vdots \\
+    0 & \dots & 1 / \textrm{SNR}_n \\
+    \end{bmatrix}
+    $$
+<!-- <p>The \(p^{th}\) diagonal element (the variance of \(\omega_p\)) is:</p>
+<p>$$ \textrm{var} \left[ \hat{\omega}_p \right] = \frac{6 \sigma^2}{N^3} \frac{1}{\alpha_p^2} = \frac{6}{N^3} \frac{1}{\textrm{SNR}_p}$$</p> -->
+</li>
+</ul>
+<p>This matrix represents <em>Cramer-Rao lower bound</em> (CRLB) for an unbiased frequency estimator.</p>
+
+<p>This \(\omega\)  has units of radians / sample. In real frequency units (Hz), this is:
+
+$$\operatorname{cov} ( \hat{F} ) = \operatorname{cov} \left( \frac{\hat{\omega}}{2 \pi} F_s \right) = 
+\left( \frac{F_s}{2 \pi} \right) ^ 2 \frac{6 \sigma^2}{N^3}
+\begin{bmatrix} 
+1 / \alpha_1^2 & \dots & 0 \\
+\vdots & \ddots & \vdots \\
+0 & \dots & 1 / \alpha_n^2 \\
+\end{bmatrix}
+$$
+</p>
+
+<p>One drawback of this algorithm mentioned in the book is that the optimization surface can be treacherous and rapidly diverging. Hence, it requires very good initialization parameters. Therefore, this method works best when the signal frequencies are known fairly well ahead of time.</p>
+
+<p>In the case of \(n = 1\), this method reduces to finding the argmax of a (continuous-frequency) periodogram. One way of computing this solution is to zero-pad the signal to a desired granularity, then pick the highest point. However, the computation of such a DFT might prove highly time-consuming for sufficiently precise estimates. Another approach is to find the max of the periodogram function using a nonlinear search algorithm. This is somewhat analogous to a direct fit of a sine function, but it may be faster with a cheap algorithm to evaluate the DFT at as subset of frequencies.</p>
+
+<h4 id="ch4sec3">Covariance Matrix Methods</h4>
+
+<p>Most of the other frequency estimation methods make use of what is called the <em>Covariance Matrix Model</em>. These models all rely on a choice of integer \(m\), which allows one to exchange accuracy for computational speed. Considerations are:</p>
+<ul>
+    <li>Larger \(m\) will result in better statistical accuracy, at the expense of computational burden.</li>
+    <li>Estimates become unreliable as \(m\) approaches \(N\), because the number of sub-sequences used to compute the sample covariance matrix becomes small.</li>
+</ul>
+<p>Once a value of \(m\) is chosen, it is used to define an \((m \times 1)\) vector \(a(\omega)\) whose (zero-indexed) \(j^{th}\) element is \(e^{-i j \omega}\):
+$$ a(\omega) \equiv \left[ 1, e^{-i \omega}, \ldots, e^{-i \omega (m-1)}\right]^T$$</p>
+
+<p>Then, \(a\) is used to define the columns of an \((m \times n)\) matrix \(A\). The \(n\) columns of \(A\) are formed using \( a \) with the \(n\) frequency components of the signal, \(\{ \omega_p \}_{p=1}^n \):
+
+$$
+A \equiv
+\begin{bmatrix}
+1 & \dots & 1 \\
+e^{-i \omega_1} & \dots & e^{-i \omega_n} \\
+\vdots & \ddots & \vdots \\
+e^{-i \omega_1 (m-1)} & \dots & e^{-i \omega_n (m-1)}
+\end{bmatrix}
+$$
+</p>
+
+<p>The integer \(m\) is also used to define new sub-sequences \(\bar{y}(t)\) and \(\bar{e}(t)\) according to the pattern
+$$\bar{y}(t) \equiv \left[y(t), y(t-1), \ldots, y(t-(m-1)) \right] ^T$$
+meaning that each value of \(\bar{y}(t)\) and \(\bar{e}(t)\) is an \((m \times 1)\) column vector. An \((n \times 1)\) vector \(\bar{x}(t)\)  is constructed from the signal's constituent sinusoids, \(x_p(t)\), and then we can write:
+$$\bar{y}(t) = A\bar{x}(t)+\bar{e}(t)$$
+
+From this formula, we can calculate the covariance matrix of \(\bar{y}(t)\), \(R\):
+$$R \equiv \mathbb{E} \left[ \bar{y}(t) \bar{y}^{\dagger}(t) \right] = A P A^{\dagger} + \sigma^2 I_m$$
+
+where \(P\) is the \((n \times n)\) diagonal matrix containing the elements \(\alpha_p^2\) as it's diagonal elements.</p>
+
+<p>Note that in the case of \(n = 1\), \(P = \alpha_1^2\) and \(A\) is an \((m \times 1)\) vector rather than an \((m \times n)\) matrix:
+$$A (n=1) = \left[ 1, e^{i \omega_1}, \ldots, e^{i \omega_t (m-1)}\right] ^ T$$</p>
+<p>\(R\) simplifies to:
+$$R(n=1) = \alpha_1^2 A A^{\dagger} + \sigma^2 I_m$$</p>
+
+<h5 id="ch4sec3sub1">MUltiple SIgnal Classification Algorithm (MUSIC)</h5>
+
+<p>The MUSIC model relies on the covariance matrix model described above. Assuming \(m > n\) (which it typically is), the \((m \times n)\) matrix \(A\) and the \((m \times m)\) matrix \(APA^{\dagger}\) both have rank \(n\). Hence, \(APA^{\dagger}\) has \(n\) strictly positive eigenvalues, and \(m - n\) eigenvalues equal to \(0\).</p>
+
+<p>When the matrix \(APA^{\dagger}\) is added to \(\sigma^2 I_m\) to yield \(R\), its eigenvalues all simply increase by \(\sigma^2\). So the eigenvalues \(\lambda_k\) of \(R\) can be split into 2 groups (after being arranged in decreasing order):</p>
+<ul>
+    <li>\(\lambda_k > \sigma^2\), for \(k = 1, \ldots, n\)</li>
+    <li>\(\lambda_k = \sigma^2\), for \(k = n+1, \ldots, m\)</li>
+</ul>
+
+<p>Next, the eigenvectors of \(R\) are grouped in the same way, with the following naming conventions:</p>
+<ul>
+    <li>The eigenvectors associated with the first \(n\) eigenvalues are denoted \(\{s_1, \ldots, s_n \}\)</li>
+    <li>The eigenvectors associated with the final \(m-n\) eigenvalues are denoted \(\{g_1, \ldots, g_{m-n} \}\)</li>
+</ul>
+<p>And these matrices are constructed from the eigenvectors:</p>
+<ul>
+    <li>\(S\): an \((m \times n)\) matrix with columns \(\{s_1, \ldots, s_n \}\)</li>
+    <li>\(G\): an \((m \times (m-n))\) matrix with columns \(\{g_1, \ldots, g_{m-n} \}\)</li>
+</ul>
+<p>The <em>ranges</em> of \(S\) and \(G\) (the vector spaces to which they map vectors) are known, respectively, as the <em>signal subspace </em>and<em> noise subspace</em>.</p>
+<p>Finally, we come to the key result, which is that the true frequency components, \(\{ \omega_p \}_{p=1}^n\), are the only solutions to the equation
+
+$$a^{\dagger}(\omega) \, G \, G^{\dagger} \, a(\omega) = 0$$
+
+for all \(m > n\).</p>
+
+<p>The MUSIC <em>algorithm</em> leverages this equality, and estimates frequencies in the following way:</p>
+<ol>
+    <li>
+<p>Choose a value of \(m > n\), and compute the sample covariance matrix (\(\hat{R}\)):
+$$\hat{R} = \frac{1}{N} \sum\limits_{t=m}^N \bar{y}(t)\bar{y}^{\dagger}(t)$$</p>
+
+<p>Note that the number of terms in this sum is \(N - m\). If \(m\) is close to \(N\), the number of terms will be small and the resulting estimate can suffer from an effectively small sample size.</p>
+</li>
+    <li>
+<p>Compute the eigenvalues and eigenvectors of \(\hat{R}\). Construct matrices \(\hat{S}\) and \(\hat{G}\) from the eigenvectors, as above.</p>
+</li>
+    <li>
+<p>There are two ways to proceed from here, called the <em>Spectral</em> and <em>Root</em> methods. I will describe the Spectral method here, because it is far more intuitive to me.</p>
+<p>In the presence of noise, the "objective function" \(a^{\dagger}(\omega)\hat{G}\hat{G}^{\dagger}a(\omega)\)
+    will not be <em>exactly</em> \(0\) for the true signal frequencies. However, it seems reasonable to think that these values of \(\omega\) might minimize \(a^{\dagger}(\omega) \hat{G} \hat{G}^{\dagger} a(\omega)\). That is essentially the approach that <em>Spectral MUSIC</em> takes, though instead of minimizing, it maximizes the inverse:
+$$\frac{1}{a^{\dagger}(\omega) \hat{G} \hat{G}^{\dagger} a(\omega)}$$</p>
+<p>Intuitively, the above expression ought to have peaks at the true signal frequencies, and for this reason, it is called a "pseudospectrum." The frequency estimates \(\hat{\omega}\) are simply the maxima of this pseudospectrum.</p>
+</li>
+</ol>
+
+<p>In discussion of the MUSIC algorithm, a method called the <em>Pisarenko method</em> is often referenced. The Pisarenko method is simply a special case of MUSIC, with \(m=n+1\).</p>
+<p>In Matlab, the MUSIC algorithm can be implemented using the built-in <code>pmusic</code> function. This command takes two inputs: the data \(y(t)\), and the number of signal frequencies \(n\). The output of the <code>pmusic </code>function is the pseudospectrum and, if desired, the list of angular frequencies at which it was evaluated. My understanding is that to specify the \(m\) parameter, one must first use the <code>corrmtx</code> function with the data, the value of \(m\), and the string argument "covariance" (i.e. <code>x = corrmtx(y, m, 'covariance')</code>). This generates a correlation matrix, which can then be fed into the <code>pmusic</code> function. Regardless, \(m\) is determined automatically from the first input to <code>pmusic</code> (see Matlab's documentation for details).</p>
+<p>A couple of things to be wary of:</p>
+<ul>
+    <li>The notation is confusing, and Matlab uses letter conventions in its documentation that are different from the textbook and this post. Matlab uses <code>p</code> for \(n\), <code>n</code> for \(m\), and (I think) <code>m</code> for \(m-n\).</li>
+    <li>The input <code>p</code> corresponds to the number of <em>complex exponentials</em> (real sinusoids contribute 2 each).</li>
+    <li>My understanding of Matlab's implementation is still improving, so the previous paragraph is subject to change as I learn more about how it works.</li>
+</ul>
+<h5 id="ch4sec3sub2">Other Covariance Matrix Methods</h5>
+<p>The rest of chapter 4 outlines more frequency estimation methods derived from the covariance matrix model. Some of these, which I haven't read in detail, are:</p>
+<ul>
+    <li>Estimation of Signal Parameters by Rotational Invariance Techniques (ESPRIT)</li>
+    <li>The Min-Norm Method</li>
+    <li>The High-Order Yule-Walker Method</li>
+</ul>
+<p>I don't think it makes sense for me to study these in detail right now. If we become more interested in any of these other techniques, I (or someone else) will know where to find them.</p>

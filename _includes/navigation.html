@@ -46,7 +46,7 @@
                 {{ post.title }}
                 </div>
                 {% if post.sections.size > 0 %}
-                    <ol class="sectionlist">
+                    <ul class="sectionlist">
                     {% for section in post.sections %}
                         <li>
                             <a href="{{ section.link }}">
@@ -54,7 +54,7 @@
                             </a>
                         </li>
                     {% endfor %}
-                    </ol>
+                    </ul>
                 {% endif %}
                 {% else %}
                 <a href="{{ post.url }}" class="other pagename">
